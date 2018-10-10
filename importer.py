@@ -3,7 +3,7 @@ import datetime
 import json
 
 import boto3 as boto3
-import requests
+from botocore.vendored import requests
 
 s3_client = boto3.client('s3')
 
@@ -68,8 +68,8 @@ def import_price_paid_data(from_date, to_date, key_prefix):
           "et[]=lrcommon:leasehold&" \
           "header=true&" \
           "limit=all&" \
-          "max_date={}&" \
           "min_date={}&" \
+          "max_date={}&" \
           "nb[]=true&" \
           "nb[]=false&" \
           "ptype[]=lrcommon:detached&" \
@@ -91,7 +91,6 @@ def import_price_paid_data(from_date, to_date, key_prefix):
     line_count = 0
     for row in reader:
         if line_count == 0:
-            print(f'Column names are {", ".join(row)}')
             line_count += 1
         else:
             if row:
@@ -115,20 +114,34 @@ def import_price_paid_data(from_date, to_date, key_prefix):
                 )
 
                 json_output = json.dumps(vars(price_paid_json))
-                print(json_output)
+                # print(json_output)
                 s3_client.put_object(Body=json_output, Bucket=S3_BUCKET,
                                   Key='{}/{}.json'.format(key_prefix, row[unique_id[0]]))
 
-            # line_count += 1
+            line_count += 1
+
+    print('Loaded Records: ' + (line_count-1))
+    s3_client.put_object(Body='Loaded Records: ' + (line_count-1), Bucket=S3_BUCKET,
+                         Key='{}/finished.txt'.format(key_prefix))
 
 
-
-if __name__ == '__main__':
+def import_data():
     now = datetime.datetime.now()
 
     for year in range(DATA_RANGE_YEAR_START, now.year):
         for month in range(1, 13):
-            import_price_paid_data(datetime.date(year, month, 1).strftime('%d %B %Y'),
-                                   datetime.date(year, month, _DAYS_IN_MONTH[month]).strftime('%d %B %Y'),
-                                   '{}/{}/{}'.format(S3_KEY_PREFIX, year, datetime.date(year, month, 1).strftime('%B'))
-                                   )
+            s3_prefix = '{}/{}/{}'.format(S3_KEY_PREFIX, year, datetime.date(year, month, 1).strftime('%B'))
+            list_response = s3_client.list_objects_v2(Bucket=S3_BUCKET,
+                                                      Prefix=s3_prefix + '/finished.txt')
+
+            if list_response.get('KeyCount') == 0:
+                import_price_paid_data(datetime.date(year, month, 1).strftime('%d %B %Y'),
+                                       datetime.date(year, month, _DAYS_IN_MONTH[month]).strftime('%d %B %Y'),
+                                       s3_prefix
+                                       )
+
+def lambda_handler(context, event):
+    import_data()
+
+if __name__ == '__main__':
+    import_data()
