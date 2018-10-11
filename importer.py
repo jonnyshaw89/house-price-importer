@@ -120,8 +120,8 @@ def import_price_paid_data(from_date, to_date, key_prefix):
 
             line_count += 1
 
-    print('Loaded Records: ' + (line_count-1))
-    s3_client.put_object(Body='Loaded Records: ' + (line_count-1), Bucket=S3_BUCKET,
+    print('Loaded Records: ' + str((line_count-1)))
+    s3_client.put_object(Body='Loaded Records: ' + str((line_count-1)), Bucket=S3_BUCKET,
                          Key='{}/finished.txt'.format(key_prefix))
 
 
