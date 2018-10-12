@@ -1,6 +1,6 @@
 import csv
 import datetime
-import json
+import tempfile
 
 import boto3 as boto3
 from botocore.vendored import requests
@@ -25,7 +25,7 @@ transaction_category = 14
 linked_data_uri = 15
 
 S3_BUCKET = 'lots-of-data'
-S3_KEY_PREFIX = 'house_prices_json'
+S3_KEY_PREFIX = 'house_prices'
 
 DATA_RANGE_YEAR_START = 1995
 
@@ -55,6 +55,22 @@ class PricePaid(object):
         # self.linked_data_uri = linked_data_uri
 
 
+fieldnames = [
+    'price_paid',
+    'deed_date',
+    'postcode',
+    'property_type',
+    'new_build',
+    'estate_type',
+    'saon',
+    'paon',
+    'street',
+    'locality',
+    'town',
+    'district',
+    'county',
+    'transaction_category',
+]
 
 def import_price_paid_data(from_date, to_date, key_prefix):
 
@@ -88,41 +104,43 @@ def import_price_paid_data(from_date, to_date, key_prefix):
 
     reader = csv.reader(csv_content.split('\n'), delimiter=',')
 
-    line_count = 0
-    for row in reader:
-        if line_count == 0:
-            line_count += 1
-        else:
-            if row:
-                price_paid_json = PricePaid(
-                    row[unique_id[0]],
-                    int(row[price_paid]),
-                    row[deed_date],
-                    row[postcode],
-                    row[property_type],
-                    row[new_build],
-                    row[estate_type],
-                    row[saon],
-                    row[paon],
-                    row[street],
-                    row[locality],
-                    row[town],
-                    row[district],
-                    row[county],
-                    row[transaction_category],
-                    row[linked_data_uri],
-                )
+    with tempfile.NamedTemporaryFile(mode='w+t') as temp:
+        with open(temp.name, 'w') as fake_csv:
 
-                json_output = json.dumps(vars(price_paid_json))
-                # print(json_output)
-                s3_client.put_object(Body=json_output, Bucket=S3_BUCKET,
-                                  Key='{}/{}.json'.format(key_prefix, row[unique_id[0]]))
+            line_count = 0
+            for row in reader:
+                if line_count == 0:
+                    line_count += 1
+                else:
+                    if row:
+                        price_paid_obj = PricePaid(
+                            row[unique_id[0]],
+                            int(row[price_paid]),
+                            row[deed_date],
+                            row[postcode],
+                            row[property_type],
+                            row[new_build],
+                            row[estate_type],
+                            row[saon],
+                            row[paon],
+                            row[street],
+                            row[locality],
+                            row[town],
+                            row[district],
+                            row[county],
+                            row[transaction_category],
+                            row[linked_data_uri],
+                        )
 
-            line_count += 1
+                        writer = csv.DictWriter(fake_csv, fieldnames=fieldnames)
+                        writer.writerow(vars(price_paid_obj))
 
-    print('Loaded Records: ' + str((line_count-1)))
-    s3_client.put_object(Body='Loaded Records: ' + str((line_count-1)), Bucket=S3_BUCKET,
-                         Key='{}/finished.txt'.format(key_prefix))
+                    line_count += 1
+
+        temp.seek(0)
+
+        s3_client.put_object(Body=temp.read(), Bucket=S3_BUCKET,
+                          Key='{}/data.csv'.format(key_prefix))
 
 
 def import_data():
@@ -132,7 +150,7 @@ def import_data():
         for month in range(1, 13):
             s3_prefix = '{}/{}/{}'.format(S3_KEY_PREFIX, year, datetime.date(year, month, 1).strftime('%B'))
             list_response = s3_client.list_objects_v2(Bucket=S3_BUCKET,
-                                                      Prefix=s3_prefix + '/finished.txt')
+                                                      Prefix=s3_prefix + '/data.csv')
 
             if list_response.get('KeyCount') == 0:
                 import_price_paid_data(datetime.date(year, month, 1).strftime('%d %B %Y'),
