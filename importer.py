@@ -1,5 +1,6 @@
 import csv
 import datetime
+import os
 import tempfile
 
 import boto3 as boto3
@@ -24,8 +25,15 @@ county = 13
 transaction_category = 14
 linked_data_uri = 15
 
-S3_BUCKET = 'lots-of-data'
-S3_KEY_PREFIX = 'house_prices'
+def get_env_or_fail(key):
+    value = os.getenv(key)
+    if value is None:
+        raise Exception("Setting '{}' Missing".format(key))
+
+    return value
+
+S3_BUCKET = get_env_or_fail('S3_BUCKET')
+S3_KEY_PREFIX = get_env_or_fail('S3_KEY_PREFIX')
 
 DATA_RANGE_YEAR_START = 1995
 
@@ -148,7 +156,7 @@ def import_data():
 
     for year in range(DATA_RANGE_YEAR_START, now.year):
         for month in range(1, 13):
-            s3_prefix = '{}/{}/{}'.format(S3_KEY_PREFIX, year, datetime.date(year, month, 1).strftime('%B'))
+            s3_prefix = '{}/year={}/month={}'.format(S3_KEY_PREFIX, year, datetime.date(year, month, 1).strftime('%B'))
             list_response = s3_client.list_objects_v2(Bucket=S3_BUCKET,
                                                       Prefix=s3_prefix + '/data.csv')
 
@@ -157,9 +165,6 @@ def import_data():
                                        datetime.date(year, month, _DAYS_IN_MONTH[month]).strftime('%d %B %Y'),
                                        s3_prefix
                                        )
-
-def lambda_handler(context, event):
-    import_data()
 
 if __name__ == '__main__':
     import_data()
