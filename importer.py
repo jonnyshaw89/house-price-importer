@@ -154,6 +154,8 @@ def import_price_paid_data(from_date, to_date, key_prefix):
 def import_data():
     now = datetime.datetime.now()
 
+    print('Starting Import')
+
     for year in range(DATA_RANGE_YEAR_START, now.year):
         for month in range(1, 13):
             s3_prefix = '{}/year={}/month={}'.format(S3_KEY_PREFIX, year, datetime.date(year, month, 1).strftime('%B'))
@@ -165,6 +167,8 @@ def import_data():
                                        datetime.date(year, month, _DAYS_IN_MONTH[month]).strftime('%d %B %Y'),
                                        s3_prefix
                                        )
+
+    print('Finished Import')
 
 if __name__ == '__main__':
     import_data()
