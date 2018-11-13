@@ -156,7 +156,7 @@ def import_data():
 
     print('Starting Import')
 
-    for year in range(DATA_RANGE_YEAR_START, now.year):
+    for year in range(DATA_RANGE_YEAR_START, now.year+1):
         for month in range(1, 13):
             s3_prefix = '{}/year={}/month={}'.format(S3_KEY_PREFIX, year, datetime.date(year, month, 1).strftime('%B'))
             list_response = s3_client.list_objects_v2(Bucket=S3_BUCKET,
