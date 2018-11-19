@@ -1,6 +1,7 @@
 import csv
 import datetime
 import os
+import pandas as pd
 import tempfile
 
 import boto3 as boto3
@@ -114,41 +115,33 @@ def import_price_paid_data(from_date, to_date, key_prefix):
 
     with tempfile.NamedTemporaryFile(mode='w+t') as temp:
         with open(temp.name, 'w') as fake_csv:
-
-            line_count = 0
             for row in reader:
-                if line_count == 0:
-                    line_count += 1
-                else:
-                    if row:
-                        price_paid_obj = PricePaid(
-                            row[unique_id[0]],
-                            int(row[price_paid]),
-                            row[deed_date],
-                            row[postcode],
-                            row[property_type],
-                            row[new_build],
-                            row[estate_type],
-                            row[saon],
-                            row[paon],
-                            row[street],
-                            row[locality],
-                            row[town],
-                            row[district],
-                            row[county],
-                            row[transaction_category],
-                            row[linked_data_uri],
-                        )
-
-                        writer = csv.DictWriter(fake_csv, fieldnames=fieldnames)
-                        writer.writerow(vars(price_paid_obj))
-
-                    line_count += 1
+                if row:
+                    price_paid_obj = PricePaid(
+                        row[unique_id[0]],
+                        int(row[price_paid]),
+                        row[deed_date],
+                        row[postcode],
+                        row[property_type],
+                        row[new_build],
+                        row[estate_type],
+                        row[saon],
+                        row[paon],
+                        row[street],
+                        row[locality],
+                        row[town],
+                        row[district],
+                        row[county],
+                        row[transaction_category],
+                        row[linked_data_uri],
+                    )
+                    writer = csv.DictWriter(fake_csv, fieldnames=fieldnames)
+                    writer.writerow(vars(price_paid_obj))
 
         temp.seek(0)
-
-        s3_client.put_object(Body=temp.read(), Bucket=S3_BUCKET,
-                          Key='{}/data.csv'.format(key_prefix))
+        df = pd.read_csv(temp)
+        df.to_parquet('s3://{}/{}/data.parquet'.format(S3_BUCKET, key_prefix), compression='gzip')
+        temp.close()
 
 
 def import_data():
@@ -162,7 +155,7 @@ def import_data():
                                                      year,
                                                      datetime.date(year, month, 1).strftime('%m'))
             list_response = s3_client.list_objects_v2(Bucket=S3_BUCKET,
-                                                      Prefix=s3_prefix + '/data.csv')
+                                                      Prefix=s3_prefix + '/data.parquet')
 
             if list_response.get('KeyCount') == 0:
                 import_price_paid_data(datetime.date(year, month, 1).strftime('%d %B %Y'),
