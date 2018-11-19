@@ -115,6 +115,8 @@ def import_price_paid_data(from_date, to_date, key_prefix):
 
     with tempfile.NamedTemporaryFile(mode='w+t') as temp:
         with open(temp.name, 'w') as fake_csv:
+            writer = csv.DictWriter(fake_csv, fieldnames=fieldnames)
+            writer.writeheader()
             for row in reader:
                 if row:
                     price_paid_obj = PricePaid(
@@ -135,7 +137,6 @@ def import_price_paid_data(from_date, to_date, key_prefix):
                         row[transaction_category],
                         row[linked_data_uri],
                     )
-                    writer = csv.DictWriter(fake_csv, fieldnames=fieldnames)
                     writer.writerow(vars(price_paid_obj))
 
         temp.seek(0)
