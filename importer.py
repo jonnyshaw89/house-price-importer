@@ -140,7 +140,7 @@ def import_price_paid_data(from_date, to_date, key_prefix):
                     writer.writerow(vars(price_paid_obj))
 
         temp.seek(0)
-        df = pd.read_csv(temp)
+        df = pd.read_csv(temp, low_memory=False)
         df.to_parquet('s3://{}/{}/data.parquet'.format(S3_BUCKET, key_prefix), compression='gzip')
         temp.close()
 
