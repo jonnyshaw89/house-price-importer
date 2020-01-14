@@ -120,7 +120,7 @@ def import_price_paid_data(from_date, to_date, key_prefix):
             writer = csv.DictWriter(fake_csv, fieldnames=fieldnames)
             writer.writeheader()
             for row in reader:
-                if row:
+                if row and len(row) == 16:
                     try:
                         price_paid_obj = PricePaid(
                             row[unique_id[0]],
