@@ -28,12 +28,14 @@ county = 13
 transaction_category = 14
 linked_data_uri = 15
 
+
 def get_env_or_fail(key):
     value = os.getenv(key)
     if value is None:
         raise Exception("Setting '{}' Missing".format(key))
 
     return value
+
 
 S3_BUCKET = get_env_or_fail('S3_BUCKET')
 S3_KEY_PREFIX = get_env_or_fail('S3_KEY_PREFIX')
@@ -116,11 +118,14 @@ def import_price_paid_data(from_date, to_date, key_prefix):
     reader = csv.reader(csv_content.split('\n'), delimiter=',')
 
     with tempfile.NamedTemporaryFile(mode='w+t') as temp:
+
+        rows_written = 0
+
         with open(temp.name, 'w') as fake_csv:
             writer = csv.DictWriter(fake_csv, fieldnames=fieldnames)
             writer.writeheader()
             for row in reader:
-                if row and len(row) == 16:
+                if row and len(row) == 16 and row[unique_id[0]] != 'unique_id':
                     try:
                         price_paid_obj = PricePaid(
                             row[unique_id[0]],
@@ -141,16 +146,22 @@ def import_price_paid_data(from_date, to_date, key_prefix):
                             row[linked_data_uri],
                         )
                         writer.writerow(vars(price_paid_obj))
+                        rows_written = rows_written +1
                     except Exception as e:
                         print('Error')
                         print(e)
                         print(row)
                         sys.exit(1)
 
-        temp.seek(0)
-        df = pd.read_csv(temp, low_memory=False)
-        df.to_parquet('s3://{}/{}/data.parquet'.format(S3_BUCKET, key_prefix), compression='gzip')
-        temp.close()
+        if rows_written > 0:
+            temp.seek(0)
+            df = pd.read_csv(temp, low_memory=False)
+            df.to_parquet('s3://{}/{}/data.parquet'.format(S3_BUCKET, key_prefix), compression='gzip')
+            temp.close()
+        else:
+            temp.close()
+            print('Finished')
+            sys.exit(0)
 
 
 def import_data():
